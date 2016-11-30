@@ -5,9 +5,7 @@ import csv
 import json
 import os
 import sys
-from collections import defaultdict
 from getpass import getpass
-from itertools import groupby
 
 EXTERNALS = 'argparse', 'rosette_api'
 try:
