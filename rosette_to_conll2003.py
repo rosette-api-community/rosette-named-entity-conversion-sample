@@ -2,8 +2,6 @@
 """Get Rosette API named entity results in CoNLL 2003-style BIO format"""
 
 import csv
-import json
-import os
 import sys
 from getpass import getpass
 
@@ -31,35 +29,35 @@ DEFAULT_ROSETTE_API_URL = 'https://api.rosette.com/rest/v1/'
 
 def extent(obj):
     """Get the start and end offset attributes of a dict-like object
-    
+
     a = {'startOffset': 0, 'endOffset': 5}
     b = {'startOffset': 0, 'endOffset': 10}
     c = {'startOffset': 5, 'endOffset': 10}
-    
+
     extent(a) -> (0, 5)
     extent(b) -> (0, 10)
     extent(c) -> (5, 10)
     extent({}) -> (-1, -1)
-    
+
     """
     return obj.get('startOffset', -1), obj.get('endOffset', -1)
 
 def overlaps(*objs):
     """Find character offsets that overlap between objects
-    
+
     a = {'startOffset': 0, 'endOffset': 5}
     b = {'startOffset': 0, 'endOffset': 10}
     c = {'startOffset': 5, 'endOffset': 10}
-    
+
     overlaps(a, b) -> {0, 1, 2, 3, 4}
     bool(overlaps(a, b)) -> True
-    
+
     overlaps(b, c) -> {5, 6, 7, 8, 9}
     bool(overlaps(b, c)) -> True
-    
+
     overlaps(a, c) -> set()
     bool(overlaps(a, c)) -> False
-    
+
     """
     return set.intersection(*(set(range(*extent(obj))) for obj in objs))
 
@@ -70,17 +68,17 @@ def load_content(txtfile):
 
 def get_entities(content, key, url, language=None):
     """Get Rosette API named entity results for the given content
-    
+
     This method gets results of the "entities" endpoint of the Rosette API.
     The result is an A(nnotated) D(ata) M(odel) or ADM that is a Python dict
     representing a document, annotations of the document content, and metadata.
-    
+
     content: the textual content of a document for the Rosette API to process
     key: your Rosette user key
     url: the URL of the Rosette API
     language: an optional ISO 639-2 T language code (the Rosette API will
     automatically detect the language of the content by default)
-    
+
     """
     api = API(user_key=key, service_url=url)
     # Request result as Annotated Data Model (ADM)
@@ -93,101 +91,101 @@ def get_entities(content, key, url, language=None):
 
 def entity_mentions(adm):
     """Generate named entity mentions from an ADM (Annotated Data Model)
-    
+
     The ADM contains an "entities" attribute that groups mentions of the
     same entity together in a "mentions" attribute per entity.  Each entity has
     a head mention index, an entity type, an entity identifier, a confidence
-    score, and a list of mentions. Each entity mention contains additional 
-    information including its start and end character offsets referring to the 
+    score, and a list of mentions. Each entity mention contains additional
+    information including its start and end character offsets referring to the
     array of characters in the document content (i.e., the adm["data"]).
-    
+
     Consider an ADM with the following content:
-    
+
     adm["data"] == "New York City or NYC is the most populous city in the United States."
-    
+
     Then the "entities" attribute would be:
-    
+
     adm["attributes"]["entities"] == {
         "items": [
             {
-                "headMentionIndex": 0, 
+                "headMentionIndex": 0,
                 "mentions": [
                     {
-                        "source": "gazetteer", 
-                        "subsource": "/data/roots/rex/data/gazetteer/eng/accept/gaz-LE.bin", 
-                        "normalized": "New York City", 
-                        "startOffset": 0, 
+                        "source": "gazetteer",
+                        "subsource": "/data/roots/rex/data/gazetteer/eng/accept/gaz-LE.bin",
+                        "normalized": "New York City",
+                        "startOffset": 0,
                         "endOffset": 13
-                    }, 
+                    },
                     {
-                        "source": "gazetteer", 
-                        "subsource": "/data/roots/rex/data/gazetteer/eng/accept/gaz-LE.bin", 
-                        "normalized": "NYC", 
-                        "startOffset": 17, 
+                        "source": "gazetteer",
+                        "subsource": "/data/roots/rex/data/gazetteer/eng/accept/gaz-LE.bin",
+                        "normalized": "NYC",
+                        "startOffset": 17,
                         "endOffset": 20
                     }
-                ], 
-                "confidence": 0.501718114501715, 
-                "type": "LOCATION", 
+                ],
+                "confidence": 0.501718114501715,
+                "type": "LOCATION",
                 "entityId": "Q60"
-            }, 
+            },
             {
-                "headMentionIndex": 0, 
+                "headMentionIndex": 0,
                 "mentions": [
                     {
-                        "source": "gazetteer", 
-                        "subsource": "/data/roots/rex/data/gazetteer/eng/accept/gaz-LE.bin", 
-                        "normalized": "United States", 
-                        "startOffset": 55, 
+                        "source": "gazetteer",
+                        "subsource": "/data/roots/rex/data/gazetteer/eng/accept/gaz-LE.bin",
+                        "normalized": "United States",
+                        "startOffset": 55,
                         "endOffset": 68
                     }
-                ], 
-                "confidence": 0.08375498050536179, 
-                "type": "LOCATION", 
+                ],
+                "confidence": 0.08375498050536179,
+                "type": "LOCATION",
                 "entityId": "Q30"
             }
-        ], 
-        "type": "list", 
+        ],
+        "type": "list",
         "itemType": "entities"
     }
-    
-    This method generates a list of all named entity mentions augmented with 
+
+    This method generates a list of all named entity mentions augmented with
     the named entity type of the the entity it refers to.
-    
+
     entity_mentions(adm) -> <generator object entity_mentions at 0xXXXXXXXXX>
-    
+
     Since the mentions are grouped by the entity they refer to, it is useful to
     get a list of the mentions in the order they appear in the document.  We can
     do this by sorting the mentions by their extent, i.e., their start and end
     character offsets:
-    
+
     sorted(entity_mentions(adm), key=extent) -> [
         {
-            "source": "gazetteer", 
-            "normalized": "New York City", 
-            "startOffset": 0, 
-            "endOffset": 13, 
-            "type": "LOCATION", 
+            "source": "gazetteer",
+            "normalized": "New York City",
+            "startOffset": 0,
+            "endOffset": 13,
+            "type": "LOCATION",
             "subsource": "/data/roots/rex/data/gazetteer/eng/accept/gaz-LE.bin"
-        }, 
+        },
         {
-            "source": "gazetteer", 
-            "normalized": "NYC", 
-            "startOffset": 17, 
-            "endOffset": 20, 
-            "type": "LOCATION", 
+            "source": "gazetteer",
+            "normalized": "NYC",
+            "startOffset": 17,
+            "endOffset": 20,
+            "type": "LOCATION",
             "subsource": "/data/roots/rex/data/gazetteer/eng/accept/gaz-LE.bin"
-        }, 
+        },
         {
-            "source": "gazetteer", 
-            "normalized": "United States", 
-            "startOffset": 55, 
-            "endOffset": 68, 
-            "type": "LOCATION", 
+            "source": "gazetteer",
+            "normalized": "United States",
+            "startOffset": 55,
+            "endOffset": 68,
+            "type": "LOCATION",
             "subsource": "/data/roots/rex/data/gazetteer/eng/accept/gaz-LE.bin"
         }
     ]
-        
+
     """
     for entity in adm['attributes']['entities']['items']:
         for mention in entity['mentions']:
@@ -197,55 +195,55 @@ def entity_mentions(adm):
 
 def conll2003(adm, use_conll_ne_tags=True):
     """Generate CoNLL 2003-style named entity rows from a Rosette API result
-    
+
     Taking an example ADM:
     adm["data"] == "New York City or NYC is the most populous city in the United States."
-    
+
     Then the output would be:
-    
+
     conll2003(adm) -> <generator object conll2003 at 0xXXXXXXXXX>
-    
+
     list(conll2003(adm)) ->
     [
         {
-            "chunk-tag": "", 
-            "part-of-speech-tag": "", 
-            "named-entity-tag": "B-LOC", 
+            "chunk-tag": "",
+            "part-of-speech-tag": "",
+            "named-entity-tag": "B-LOC",
             "word-token": "New"
-        }, 
+        },
         {
-            "chunk-tag": "", 
-            "part-of-speech-tag": "", 
-            "named-entity-tag": "I-LOC", 
+            "chunk-tag": "",
+            "part-of-speech-tag": "",
+            "named-entity-tag": "I-LOC",
             "word-token": "York"
-        }, 
+        },
         {
-            "chunk-tag": "", 
-            "part-of-speech-tag": "", 
-            "named-entity-tag": "I-LOC", 
+            "chunk-tag": "",
+            "part-of-speech-tag": "",
+            "named-entity-tag": "I-LOC",
             "word-token": "City"
-        }, 
+        },
         ...
         {
-            "chunk-tag": "", 
-            "part-of-speech-tag": "", 
-            "named-entity-tag": "B-LOC", 
+            "chunk-tag": "",
+            "part-of-speech-tag": "",
+            "named-entity-tag": "B-LOC",
             "word-token": "United"
-        }, 
+        },
         {
-            "chunk-tag": "", 
-            "part-of-speech-tag": "", 
-            "named-entity-tag": "I-LOC", 
+            "chunk-tag": "",
+            "part-of-speech-tag": "",
+            "named-entity-tag": "I-LOC",
             "word-token": "States"
-        }, 
+        },
         {
-            "chunk-tag": "", 
-            "part-of-speech-tag": "", 
-            "named-entity-tag": "O", 
+            "chunk-tag": "",
+            "part-of-speech-tag": "",
+            "named-entity-tag": "O",
             "word-token": "."
         }
     ]
-    
+
     """
     # Map Rosette named entity types to CoNLL 2003 named entity types
     CONLL2003_NE_TYPES = {
